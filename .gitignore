@@ -1,0 +1,29 @@
+# Rust build outputs
+/target/
+templates/basic-contract/target/
+examples/token-contract/target/
+examples/escrow-contract/target/
+
+# Lock file kept for binaries; remove this line for libraries
+# Cargo.lock
+
+# SorobanGuard reports
+sorobanguard-reports/
+
+# Environment config (never commit secrets)
+.env
+.env.local
+
+# Editor directories
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Test / benchmark artifacts
+criterion/
+
+# Temporary files
+*.tmp
+*.bak

@@ -1,0 +1,84 @@
+[workspace]
+resolver = "2"
+# Contract crates are excluded from the host workspace so they can be built
+# with `stellar contract build` (wasm32v1-none target, Rust 1.84+).
+# They each have their own Cargo.toml referencing soroban-sdk.
+members = [
+    "crates/cli",
+    "crates/core",
+    "crates/validators",
+    "crates/reporters",
+    "crates/test-utils",
+]
+exclude = [
+    "templates/basic-contract",
+    "examples/token-contract",
+    "examples/escrow-contract",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["SorobanGuard Contributors"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/your-org/sorobanguard"
+homepage = "https://github.com/your-org/sorobanguard"
+documentation = "https://docs.rs/sorobanguard"
+keywords = ["stellar", "soroban", "smart-contracts", "testing", "cli"]
+categories = ["development-tools", "command-line-utilities"]
+
+[workspace.dependencies]
+# CLI
+clap = { version = "4.5", features = ["derive", "env", "color"] }
+clap_complete = "4.5"
+
+# Async runtime
+tokio = { version = "1.38", features = ["full"] }
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Serialisation
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Logging / tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+# Filesystem / process
+walkdir = "2.5"
+which = "6.0"
+tempfile = "3.10"
+toml = "0.8"
+
+# Terminal output
+console = "0.15"
+indicatif = "0.17"
+colored = "2.1"
+comfy-table = "7.1"
+
+# Markdown generation
+pulldown-cmark = "0.11"
+
+# WASM inspection (pure-Rust parser)
+wasmparser = "0.207"
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Testing
+assert_cmd = "2.0"
+predicates = "3.1"
+pretty_assertions = "1.4"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true

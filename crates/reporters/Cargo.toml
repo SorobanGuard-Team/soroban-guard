@@ -1,0 +1,20 @@
+[package]
+name = "sorobanguard-reporters"
+description = "Terminal, JSON and Markdown reporters for SorobanGuard pipeline results"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+sorobanguard-core = { path = "../core" }
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+colored.workspace = true
+comfy-table.workspace = true
+chrono.workspace = true
+
+[dev-dependencies]
+pretty_assertions.workspace = true
+tempfile.workspace = true

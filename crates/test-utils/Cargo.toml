@@ -1,0 +1,16 @@
+[package]
+name = "sorobanguard-test-utils"
+description = "Reusable testing helpers for Soroban smart contracts (soroban-sdk v29)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# This crate is not a contract — it targets the host (not wasm32v1-none).
+# It compiles with soroban-sdk testutils enabled.
+[dependencies]
+soroban-sdk = { version = "29", features = ["testutils"] }
+anyhow.workspace = true
+
+[dev-dependencies]
+pretty_assertions.workspace = true

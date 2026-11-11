@@ -1,0 +1,194 @@
+name: SorobanGuard CI
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main", "develop"]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  # Pin to the minimum supported version; bump here when raising MSRV.
+  RUST_VERSION: "1.84.0"
+
+jobs:
+  # ── Lint and format ─────────────────────────────────────────────────────────
+  lint:
+    name: Lint (fmt + clippy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust ${{ env.RUST_VERSION }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          components: rustfmt, clippy
+
+      - name: Cache Cargo registry + build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-lint-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-lint-
+
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+      - name: Run clippy (workspace)
+        run: cargo clippy --workspace -- -D warnings
+
+  # ── Host-side crate tests ────────────────────────────────────────────────────
+  test-host:
+    name: Test host crates
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust ${{ env.RUST_VERSION }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-test-
+
+      - name: Run workspace tests
+        run: cargo test --workspace
+
+  # ── Contract crate tests ─────────────────────────────────────────────────────
+  test-contracts:
+    name: Test contract crates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust ${{ env.RUST_VERSION }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          targets: wasm32v1-none
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-contracts-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-contracts-
+
+      - name: Test basic-contract
+        working-directory: templates/basic-contract
+        run: cargo test
+
+      - name: Test token-contract
+        working-directory: examples/token-contract
+        run: cargo test
+
+      - name: Test escrow-contract
+        working-directory: examples/escrow-contract
+        run: cargo test
+
+  # ── Contract build (WASM) ────────────────────────────────────────────────────
+  build-contracts:
+    name: Build WASM artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust ${{ env.RUST_VERSION }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          targets: wasm32v1-none
+
+      - name: Install stellar-cli
+        run: cargo install stellar-cli --features opt --locked
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-build-
+
+      - name: Build basic-contract
+        working-directory: templates/basic-contract
+        run: stellar contract build
+
+      - name: Build token-contract
+        working-directory: examples/token-contract
+        run: stellar contract build
+
+      - name: Build escrow-contract
+        working-directory: examples/escrow-contract
+        run: stellar contract build
+
+      - name: Upload WASM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasm-artifacts
+          path: |
+            templates/basic-contract/target/wasm32v1-none/release/*.wasm
+            examples/token-contract/target/wasm32v1-none/release/*.wasm
+            examples/escrow-contract/target/wasm32v1-none/release/*.wasm
+
+  # ── SorobanGuard self-check ──────────────────────────────────────────────────
+  sorobanguard-check:
+    name: SorobanGuard self-check on examples
+    runs-on: ubuntu-latest
+    needs: [build-contracts]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust ${{ env.RUST_VERSION }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          targets: wasm32v1-none
+          components: rustfmt, clippy
+
+      - name: Install stellar-cli
+        run: cargo install stellar-cli --features opt --locked
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-sgcheck-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-sgcheck-
+
+      - name: Build sorobanguard CLI
+        run: cargo build --release -p sorobanguard
+
+      - name: Run sorobanguard check on basic-contract
+        run: ./target/release/sorobanguard check --project templates/basic-contract --report-dir sorobanguard-reports/basic-contract
+
+      - name: Upload SorobanGuard reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sorobanguard-reports
+          path: sorobanguard-reports/
